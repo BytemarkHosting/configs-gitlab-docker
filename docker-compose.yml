@@ -1,0 +1,81 @@
+version: '3'
+# See https://docs.docker.com/compose/overview/ for more information.
+
+# If you make changes to this file or any related files, apply them by
+# navigating to the directory that holds this file and run this as root:
+#   docker-compose down; docker-compose up -d
+
+# Create a network for our containers.
+networks:
+  frontend:
+
+# Create persistent Docker volumes to preserve important data.
+# We don't want our data to be lost when restarting containers.
+volumes:
+  # For storing GitLab's configuration files:
+  vol-gitlab-config:
+  # For storing GitLab's logs:
+  vol-gitlab-logs:
+  # For storing GitLab's application data:
+  vol-gitlab-data:
+
+# Create our containers.
+services:
+  # Watchtower detects if any linked containers have an new image
+  # available, automatically updating & restarting them if needed.
+  watchtower:
+    # https://hub.docker.com/r/centurylink/watchtower/
+    image: v2tec/watchtower:latest
+    # https://github.com/v2tec/watchtower#options
+    # This schedule applies updates (if available) at midnight.
+    command: --cleanup --schedule "0 0 0 * * *"
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # The main front-end application.
+  gitlab:
+    # To stick to a specific version, replace "latest" with a tag from:
+    # https://hub.docker.com/r/gitlab/gitlab-ce/tags/
+    image: gitlab/gitlab-ce:latest
+    restart: always
+    hostname: "${GITLAB_DOMAIN}"
+    ports:
+      - "22:22"    # Change to "2222:22" if the host needs port 22.
+      - "80:80"
+      - "443:443"
+    networks:
+      - frontend
+    volumes:
+      # Ensure GitLab content persist between restarts.
+      - vol-gitlab-config:/etc/gitlab
+      - vol-gitlab-logs:/var/log/gitlab
+      - vol-gitlab-data:/var/opt/gitlab
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # Add gitlab.rb configuration here, each on its own line.
+        # See: https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/files/gitlab-config-template/gitlab.rb.template
+        external_url 'https://${GITLAB_DOMAIN}'
+        letsencrypt['enable'] = false
+        # Configure headers for outgoing email.
+        gitlab_rails['gitlab_email_enabled'] = true
+        gitlab_rails['gitlab_email_from'] = 'no-reply@${GITLAB_DOMAIN}'
+        gitlab_rails['gitlab_email_display_name'] = 'GitLab'
+        gitlab_rails['gitlab_email_reply_to'] = 'no-reply@${GITLAB_DOMAIN}'
+        # Send outgoing email via the SMTP container:
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "mail"
+        gitlab_rails['smtp_port'] = 25
+        gitlab_rails['smtp_tls'] = false
+        # Limit backup lifetime to 7 days (604800 seconds):
+        gitlab_rails['backup_keep_time'] = 604800
+
+  # This allows GitLab to send email straight out of the box without
+  # having to rely on an external provider like SendGrid or MailGun.
+  # It makes an SMTP host available at the hostname "mail".
+  mail:
+    image: bytemark/smtp
+    restart: always
+    networks:
+      - frontend
+
