@@ -55,7 +55,7 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         # Add gitlab.rb configuration here, each on its own line.
         # See: https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/files/gitlab-config-template/gitlab.rb.template
-        external_url 'https://${GITLAB_DOMAIN}'
+        external_url 'http://${GITLAB_DOMAIN}'
         letsencrypt['enable'] = false
         # Configure headers for outgoing email.
         gitlab_rails['gitlab_email_enabled'] = true
