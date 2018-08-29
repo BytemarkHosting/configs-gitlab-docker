@@ -8,4 +8,5 @@ support for:
   image](https://hub.docker.com/r/gitlab/gitlab-ce/))
 * Outgoing email (via [Bytemark's SMTP
   image](https://hub.docker.com/r/bytemark/smtp/))
+* Automatic updates
 
