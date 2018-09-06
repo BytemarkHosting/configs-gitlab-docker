@@ -1,0 +1,20 @@
+#!/bin/sh
+set -u
+
+# For GitLab's instructions on backup and restore, see:
+# https://docs.gitlab.com/ee/raketasks/backup_restore.html
+
+SRC=/etc/gitlab
+DST=/var/opt/gitlab/config-backups
+DATE="`date +%s_%Y_%m_%d`"
+DAYS_TO_KEEP=7
+
+# Run GitLab backup. NB: backups are specific to a GitLab version.
+docker-compose exec gitlab gitlab-rake gitlab:backup:create
+
+# GitLab doesn't backup config files, so take a backup manually.
+docker-compose exec gitlab install -m0700 -d "$DST"
+docker-compose exec gitlab tar czf "$DST/$DATE.tar.gz" $SRC
+
+# Delete old backups.
+docker-compose exec gitlab find "$DST" -mindepth 1 -maxdepth 1 -type f -name '*.tar.gz' -mtime +$DAYS_TO_KEEP -delete
